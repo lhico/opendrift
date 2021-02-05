@@ -17,8 +17,6 @@ try:
 except:
 	has_xarray = False
 
-
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -31,8 +29,6 @@ from opendrift.readers.ECOM_dependencies import depth_ECOM, work_model_grid
 ###############################################################################
 
 class Reader(BaseReader,StructuredReader):
-
-
 
 	def __init__(self, filename=None, name=None, gridfile=None):
 
@@ -176,8 +172,6 @@ class Reader(BaseReader,StructuredReader):
 				gf = Dataset(gridfile)
 				self.lat = gf.variables['lat'][:]
 				self.lon = gf.variables['lon'][:]
-
-
 
 		# Get time coverage
 
