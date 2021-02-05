@@ -67,7 +67,7 @@ def create_grid_from_modelgrid(fname, nrows):
 
 def fix_ds(ds):
 	#Apply the new coordinates to the others variables from original ecom netcdf
-	cdir = os.path.abspath(__file__)
+	cdir = os.path.dirname(__file__)
 	model_grid = f"{cdir}/model_grid"
 
 	ds_new = create_grid_from_modelgrid(model_grid,26)
