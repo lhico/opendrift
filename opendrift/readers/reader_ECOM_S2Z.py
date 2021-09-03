@@ -26,6 +26,7 @@ from opendrift.readers.basereader import BaseReader, vector_pairs_xy, Structured
 
 from opendrift.readers.ECOM_dependencies import depth_ECOM, work_model_grid
 
+
 ###############################################################################
 
 class Reader(BaseReader,StructuredReader):
@@ -94,18 +95,29 @@ class Reader(BaseReader,StructuredReader):
 			else:
 				#logger.info('Opening file with Dataset')
 				if has_xarray is True:
-					#Inserted function that work the zeros values in ECOM outputsof lat and lon
+					#Inserted function that work the zeros values in ECOM outputs of lat and lon
+
 					self.Dataset_1 = xr.open_dataset(filename)
+					
+					
 					if 'xpos' in self.Dataset_1:
-						remap_names_1 = {'x': 'corn_lon', 'y': 'corn_lat'}
-						
+						remap_names_1 = {'x': 'corn_lon', 'y': 'corn_lat'}							
 						self.Dataset_2 = self.Dataset_1.rename(remap_names_1)
 						remap_names_2 = {'xpos': 'x', 'ypos': 'y'}
 						self.Dataset_3 = self.Dataset_2.rename(remap_names_2)
-						self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
-					else:
-						self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
+						self.x = self.Dataset_3.variables['x']
 
+						#if len(self.x) < 100:
+							#self.Dataset = work_model_grid.fix_ds_other(self.Dataset_3.copy())
+							#self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200])
+							#print("Using another grid in spite of PCSE")
+						#else:
+						self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
+						
+					else:
+
+						self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
+					
 				else:
 					self.Dataset = Dataset(filename, 'r')
 		except Exception as e:
@@ -238,7 +250,7 @@ class Reader(BaseReader,StructuredReader):
 			self.nearest_time(time)
 
 		variables = {}   
-
+		
 		######-----Find horizontal indices corresponding to requested x and y----#####################
 
 		if hasattr(self, 'clipped'):
@@ -281,15 +293,14 @@ class Reader(BaseReader,StructuredReader):
 						np.minimum(self.num_layers,
 								indz.max() + self.verticalbuffer))	
 		
+
+		if z.any() == 0:
+			indz = range(0,2)
 		
 		print ("indz ==", indz)
 		print("len de indz ==", len(indz))		
 		
-		#zi1 = np.maximum(0, bisect_left(-np.array(self.zlevels),
-										#-z.max()) - self.verticalbuffer)
-		#zi2 = np.minimum(len(self.zlevels),
-							#bisect_right(-np.array(self.zlevels),
-										 #-z.min()) + self.verticalbuffer)
+
 	
 		zi1_aux = np.maximum(0, bisect_left(-np.array(self.zlevels),-z.max()))
 		zi2_aux = np.minimum(len(self.zlevels),bisect_right(-np.array(self.zlevels),-z.min()))
@@ -312,7 +323,6 @@ class Reader(BaseReader,StructuredReader):
 
 		print("VAR_Z ==", variables['z'])
 
-		
 ##################################################################################################################################
 #########################---This must be done to work with sigma ----###############################################
 ##################################################################################################################################
@@ -364,6 +374,7 @@ class Reader(BaseReader,StructuredReader):
 ##################################################################################################################################
 			
 			if var.ndim == 4:
+
 				variables[par] = var[indxTime, indz, indy, indx]
 				# Regrid from sigma to z levels
 				if len(np.atleast_1d(indz)) >= 1:
@@ -415,6 +426,7 @@ class Reader(BaseReader,StructuredReader):
 					logger.debug('Applying sigma2z-coefficients')
 	
 					F = np.asarray(variables[par])
+
 					#print("F ==", F)
 					Fshape = F.shape
 					#print("Fshape ==", Fshape)
@@ -430,7 +442,7 @@ class Reader(BaseReader,StructuredReader):
 					#print("R.shape", R.shape)
 
 					variables[par] = R.reshape((kmax,) + Fshape[1:])
-					#print("Var ndim==", variables[par].ndim)
+					#variables[par]_s = R_s.reshape((kmax,) + F_sshape[1:])
 
 					# Nan in input to multi_zslice gives extreme values in output
 					variables[par][variables[par]>1e+9] = np.nan
@@ -442,6 +454,8 @@ class Reader(BaseReader,StructuredReader):
 				if variables[par].ndim > 1:
 					variables[par] = variables[par].diagonal()
 					print("Var ndim after diag==", variables[par].ndim)
+
+					
 			else:
 				variables[par] = variables[par]
 				
@@ -467,9 +481,10 @@ class Reader(BaseReader,StructuredReader):
    
 			if 'x_sea_water_velocity' in variables.keys():
 
+
 				variables['x_sea_water_velocity'] = np.nan_to_num(variables['x_sea_water_velocity'])
 				variables['y_sea_water_velocity'] = np.nan_to_num(variables['y_sea_water_velocity'])
-			
+
 			if 'upward_sea_water_velocity' in variables.keys():
 				variables['upward_sea_water_velocity'] = np.nan_to_num(variables['upward_sea_water_velocity'])
 
