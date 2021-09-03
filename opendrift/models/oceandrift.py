@@ -109,7 +109,7 @@ class OceanDrift(OpenDriftSimulation):
                 self.CONFIG_LEVEL_ADVANCED,
                 'description': 'Update T and S profiles within inner loop of vertical mixing. This takes more time, but may be slightly more accurate.'},
             'drift:wind_drift_depth': {'type': 'float', 'default': 0.1,
-                'min': 0, 'max': 10, 'units': 'meters',
+                'min': 0, 'max': 20, 'units': 'meters',
                 'description': 'The direct wind drift (windage) is linearly decreasing from the surface value (wind_drift_factor) until 0 at this depth.',
                 'level': self.CONFIG_LEVEL_ADVANCED},
             'drift:stokes_drift': {'type': 'bool', 'default': True,
