@@ -29,7 +29,7 @@ class LarvalFishElement(Lagrangian3DArray):
     variables = Lagrangian3DArray.add_variables([
         ('diameter', {'dtype': np.float32,
                       'units': 'm',
-                      'default': 0.0014}),  # for NEA Cod
+                      'default': 0.0014}),  
         ('neutral_buoyancy_salinity', {'dtype': np.float32,
                                        'units': 'PSU',
                                        'default': 31.25}),  # for NEA Cod
@@ -252,4 +252,5 @@ class LarvalFish(OceanDrift):
         self.advect_ocean_current()
         self.update_terminal_velocity()
         self.vertical_mixing()
-        self.larvae_vertical_migration()
+        #self.larvae_vertical_migration()
+
