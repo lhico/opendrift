@@ -158,24 +158,9 @@ class Reader(BaseReader,StructuredReader):
 		else:
 			self.time_step = None
 
-		# x and y are rows and columns for unprojected datasets
-		self.xmin = 0
-		self.delta_x = 1.
-
-		self.ymin = 0
-		self.delta_y = 1.
-
-
 		if has_xarray:
-			self.xmax = self.Dataset['x'].shape[0] - 1.
-			self.ymax = self.Dataset['y'].shape[0] - 1.
-			
 			self.lon = self.lon.data  # Extract, could be avoided downstream
 			self.lat = self.lat.data
-
-		else:
-			self.xmax = np.float(len(self.Dataset.dimensions['x'])) - 1
-			self.ymax = np.float(len(self.Dataset.dimensions['y'])) - 1
 
 		self.name = 'waves'
 
@@ -220,17 +205,22 @@ class Reader(BaseReader,StructuredReader):
 		if hasattr(self, 'clipped'):
 			clipped = self.clipped
 		else: clipped = 0
-		indx = np.floor((x-self.xmin)/self.delta_x).astype(int) + clipped 
-		indy = np.floor((y-self.ymin)/self.delta_y).astype(int) + clipped 
+		indx = np.floor((x-self.xmin)/self.delta_x).astype(int) + clipped
+		indy = np.floor((y-self.ymin)/self.delta_y).astype(int) + clipped
 
-
-		indx_el = indx.copy()
-		indy_el = indy.copy()
-
+		buffer = self.buffer
+		indx = np.arange(np.max([0, indx.min()-buffer]),
+							np.min([indx.max()+buffer, self.lon.shape[1]-1]))
+		indy = np.arange(np.max([0, indy.min()-buffer]),
+							np.min([indy.max()+buffer, self.lon.shape[0]-1]))	
 		
-
+		print("Buffer ==",buffer)
 		print ("indx ==", indx)
 		print ("indy ==", indy)
+		print ("indx_min ==", indx.min())
+		print ("indy_min ==", indy.min())
+		print ("indx_max ==", indx.max())
+		print ("indy_max ==", indy.max())
 
 		#Working with the variables:
 		#mask_values = {}

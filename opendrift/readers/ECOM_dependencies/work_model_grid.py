@@ -1,6 +1,9 @@
 '''
 Code for work with ECOM model grid.
 
+This code sets all varaibles into the grid with land points, and after thtat remove all land points of
+all variables, remaining the wet points
+
 Select your path from the file 'model_grid_withLandPoints'
 '''
 
@@ -12,9 +15,9 @@ import xarray as xr
 
 def load(grid, nrows, verbose=False):
 
-	"""grid: model_grid file name including path
+	"""grid: model_grid WITH LAND POINTS file name including path
 		nrows: number of rows on model_grid file to skip (line number where II and JJ indexes are written)
-
+		
 	author: written by Carine    
 	"""
 	if verbose:
@@ -46,6 +49,8 @@ def load(grid, nrows, verbose=False):
 		Ygrid[J-2, I-2] = model_grid[n, 6]
 		Xgrid[J-2, I-2] = model_grid[n, 7]
 
+		
+
 	return II,JJ,H1,H2,depgrid,ANG,Xgrid,Ygrid
 
 ############################################################################################
@@ -69,8 +74,43 @@ def fix_ds(ds):
 	#Apply the new coordinates to the others variables from original ecom netcdf
 	cdir = os.path.dirname(__file__)
 	model_grid = f"{cdir}/model_grid"
+		
 
 	ds_new = create_grid_from_modelgrid(model_grid,26)
+	ds = ds.isel(y=slice(1,-1), x=slice(1,-1))
+
+	# replacing by the model_grid domain
+	ds['lon'] = ds_new['lon']
+	ds['lat'] = ds_new['lat']
+
+
+	return ds
+
+
+
+def fix_ds_other(ds):
+	#Apply the new coordinates to the others variables from original ecom netcdf
+	cdir = os.path.dirname(__file__)
+	model_grid = f"{cdir}/model_grid_withLandPoints_Cananeia_v2"
+
+	ds_new = create_grid_from_modelgrid(model_grid,16)
+	ds = ds.isel(y=slice(1,-1), x=slice(1,-1))
+
+	# replacing by the model_grid domain
+	ds['lon'] = ds_new['lon']
+	ds['lat'] = ds_new['lat']
+
+
+	return ds
+
+
+
+def fix_ds_other_2(ds):
+	#Apply the new coordinates to the others variables from original ecom netcdf
+	cdir = os.path.dirname(__file__)
+	model_grid = f"{cdir}/model_grid_SSVBES_withLandPoints_999"
+
+	ds_new = create_grid_from_modelgrid(model_grid,16)
 	ds = ds.isel(y=slice(1,-1), x=slice(1,-1))
 
 	# replacing by the model_grid domain
