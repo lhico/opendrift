@@ -1,5 +1,5 @@
 '''
-3D reader to ECOM model at South Brazilian Bight
+3D reader to ECOM model
 Based on ROMS_native_reader
 Developed by Arian Dialectaquiz Santos and Danilo Silva from LHiCo - IO -USP (Brazil)
 '''
@@ -94,30 +94,46 @@ class Reader(BaseReader,StructuredReader):
 					#Inserted function that work the zeros values in ECOM outputs of lat and lon
 					self.Dataset_1 = xr.open_dataset(filename)
 					print("dataset ==", self.Dataset_1)
+					self.grid = []
 
 					if 'xpos' in self.Dataset_1:
 						remap_names_1 = {'x': 'corn_lon', 'y': 'corn_lat'}							
 						self.Dataset_2 = self.Dataset_1.rename(remap_names_1)
 						remap_names_2 = {'xpos': 'x', 'ypos': 'y'}
 						self.Dataset_3 = self.Dataset_2.rename(remap_names_2)
+						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lon')
+						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lat')
 						self.x = self.Dataset_3.variables['x']
 
 						if len(self.x) == 152:
 							self.Dataset = work_model_grid.fix_ds_other(self.Dataset_3.copy())
 							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
 							print("Using Cananeia grid in spite of SBB")
+							self.grid.append('cananeia')
 						elif len(self.x) > 290:
 							self.Dataset = work_model_grid.fix_ds_other_2(self.Dataset_3.copy())
 							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
 							print("Using SESSVB grid in spite of SBB or Cananeia")
+							self.grid.append('sessvb')
 
 						else:
+							if 'xpos' and 'x' in self.Dataset_1:
+								self.x = self.Dataset_1.variables['xpos']
+								self.y = self.Dataset_1.variables['ypos']
+							else:
+								self.x = self.Dataset_3.variables['x']
+								self.y = self.Dataset_3.variables['y']
+
+							self.Dataset_3 = self.Dataset_1
 							self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
 							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
 							print("Using SBB grid")
+							self.grid.append('sbb')
 
 					#if x is the zonal coordinate (new version from ECOM) only works with SBB grid	
 					else:
+						self.x = self.Dataset_1.variables['x']
+						self.y = self.Dataset_1.variables['y']
 						print("Using SBB grid with the version whitout xpos and ypos of ECOM")
 						self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
 						self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
@@ -180,9 +196,11 @@ class Reader(BaseReader,StructuredReader):
 			self.lon = self.Dataset.variables['lon']
 			print("LON==",self.lon)
 			print("Shape of lon==",self.lon.shape)
-
-			self.depth = np.where(self.depth>0,self.depth,0)
+			self.depth = ma.masked_where(self.depth<0, self.depth)
 			print("Depth:", self.depth)
+			print("min depth", np.nanmin(self.depth))
+			print("max depth", np.nanmax(self.depth))
+
 
 
 		else:
@@ -268,19 +286,21 @@ class Reader(BaseReader,StructuredReader):
 		if hasattr(self, 'clipped'):
 			clipped = self.clipped
 		else: clipped = 0
-		indx = np.floor((x-self.xmin)/self.delta_x).astype(int) + clipped 
-		indy = np.floor((y-self.ymin)/self.delta_y).astype(int) + clipped 
-		print ("indx_init ==", indx)
-		print ("indy_init ==", indy)
+		indx_i = np.floor((x-self.xmin)/self.delta_x).astype(int) + clipped 
+		indy_i = np.floor((y-self.ymin)/self.delta_y).astype(int) + clipped 
+		print ("indx_init ==", indx_i)
+		print ("indy_init ==", indy_i)
 
+		print("grid to use:", self.grid[0])
+
+		
 		buffer = self.buffer
-		indx = np.arange(np.max([0, indx.min()-buffer]),
-							np.min([indx.max()+buffer, self.lon.shape[1]]))
-		indy = np.arange(np.max([0, indy.min()-buffer]),
-							np.min([indy.max()+buffer, self.lon.shape[0]]))
+		indx = np.arange(np.max([0, indx_i.min()-buffer]),
+							np.min([indx_i.max()+buffer, self.lon.shape[1]]))
+		indy = np.arange(np.max([0, indy_i.min()-buffer]),
+							np.min([indy_i.max()+buffer, self.lon.shape[0]]))
 
-	
-		print("Buffer ==",buffer)
+		print("Buffer ==",buffer)		
 		print ("indx ==", indx)
 		print ("indy ==", indy)
 		print ("indx_min ==", indx.min())
@@ -290,7 +310,7 @@ class Reader(BaseReader,StructuredReader):
 
 
 	
- 		###########----Working with z:-------###########
+###########----Working with z:-------##################################
 		print("Reading sigma levels")
 
 		self.sigma = self.Dataset.variables['sigma']
@@ -397,8 +417,14 @@ class Reader(BaseReader,StructuredReader):
 			if par == 'land_binary_mask':
 				print("Using land_binary_mask from the Eulerian Model!!")
 
-				self.land_binary_mask = np.absolute(1 - self.Dataset.variables['FSM']) #for some reason the values are inverted, so, lets change ir
-				#np.where(self.land_binary_mask < 1, self.land_binary_mask,0)
+				if self.grid[0] == 'cananeia':
+					print("Correcting river points at Cananeia grid")
+					self.Dataset.variables['FSM'][309:314,0] = 1
+					print("New river top fsm",self.Dataset.variables['FSM'][309:314,0] )
+
+				#self.land_binary_mask = np.absolute(1 - self.Dataset.variables['FSM']) #for some reason the values are inverted, so, lets change ir
+				self.land_binary_mask = self.Dataset.variables['FSM'] 
+
 				print("land_binary_mask ==", self.land_binary_mask)
 				print("land binary mask SHAPE:", self.land_binary_mask.shape)
 
@@ -421,7 +447,7 @@ class Reader(BaseReader,StructuredReader):
 					variables[par] = var[indxTime, 0, indy, indx]
 				else:
 					variables[par] = var[indxTime, indz, indy, indx]
-
+					
 			else:
 				raise Exception('Wrong dimension of variable: ' +
 								self.variable_mapping[par])
@@ -436,20 +462,24 @@ class Reader(BaseReader,StructuredReader):
 					if not hasattr(self, 'DUM'):
 						if 'DUM' in self.Dataset.variables:
 							print("using DUM at invalid x_sea_water_velocity")
-							self.mask_u =np.absolute(1 - self.Dataset.variables['DUM'])
+							self.mask_u =self.Dataset.variables['DUM']
+							if self.grid[0] == 'cananeia':
+								self.mask_u[309:314,0] = 1
 						else:
-							self.mask_u = np.absolute(1 - self.Dataset.variables['FSM'])
+							self.mask_u = self.Dataset.variables['FSM']
 					mask = self.mask_u[indygrid, indxgrid]
 				elif par == 'y_sea_water_velocity':
 					if not hasattr(self, 'DVM'):
 						if 'DVM' in self.Dataset.variables:
-							self.mask_v =np.absolute(1 - self.Dataset.variables['DVM'])
+							self.mask_v =self.Dataset.variables['DVM']
+							if self.grid[0] == 'cananeia':
+								self.mask_v[309:314,0] = 1
 						else:
-							self.mask_v = np.absolute(1 - self.Dataset.variables['FSM'])
+							self.mask_v = self.Dataset.variables['FSM']
 					mask = self.mask_v[indygrid, indxgrid]
 				else:
 					if not hasattr(self, 'FSM'):
-						self.mask_rho = np.absolute(1 - self.Dataset.variables['FSM'])
+						self.mask_rho = self.Dataset.variables['FSM']
 					mask = self.mask_rho[indygrid, indxgrid]
 				mask = np.asarray(mask)
 				if mask.min() == 0 and par != 'land_binary_mask':
@@ -474,8 +504,8 @@ class Reader(BaseReader,StructuredReader):
 					if len(np.atleast_1d(indz)) >= 1:
 						logger.debug('sigma to z for ' + varname[0])
 						if self.precalculate_s2z_coefficients is True: 	
-							y_depth = self.depth.shape[0] #Positions of depth by Y
-							x_depth = self.depth.shape[1] #Positions of depth by X
+							y_depth = self.Dataset.variables['depth'].shape[0] #Positions of depth by Y
+							x_depth = self.Dataset.variables['depth'].shape[1] #Positions of depth by X
 							L_Y = y_depth #len(y_depth)
 							L_X = x_depth #len(x_depth) 
 							L_Z = len(self.z_rho_tot)	
@@ -553,12 +583,12 @@ class Reader(BaseReader,StructuredReader):
 
 
 ##################################################################################################################################
-
+		
 		variables['x'] = indx 
 		variables['y'] = indy 
 
-		variables['x'] = variables['x'].astype(np.float)
-		variables['y'] = variables['y'].astype(np.float)
+		#variables['x'] = variables['x'].astype(np.float)
+		#variables['y'] = variables['y'].astype(np.float)
 		variables['time'] = nearestTime
 
 
@@ -570,36 +600,21 @@ class Reader(BaseReader,StructuredReader):
 			print("Using land_binary_mask from ECOM output")
 
 			variables['land_binary_mask'] = self.land_binary_mask[indy,indx]
-			
+	
 			print("Final land_binary_mask:", variables['land_binary_mask'])
 			print("Type of final land_binary_mask:", type(variables['land_binary_mask']))
 			print("Shape of final land_binary_mask:", variables['land_binary_mask'].shape)
 
-		if 'x_sea_water_velocity' or 'x_wind' in variables.keys():
-			print("Retrieving velocities")
+		
 
-	
-			if 'x_sea_water_velocity' in variables.keys():
-			
-				variables['x_sea_water_velocity'] = np.nan_to_num(variables['x_sea_water_velocity'])
-				variables['y_sea_water_velocity'] = np.nan_to_num(variables['y_sea_water_velocity'])
-
-			if 'upward_sea_water_velocity' in variables.keys():
-				variables['upward_sea_water_velocity'] = np.nan_to_num(variables['upward_sea_water_velocity'])
-			if 'x_wind' in variables.keys():
-				
-				variables['x_wind'] = np.nan_to_num(variables['x_wind'])
-				variables['x_wind'][variables['x_wind']>50] = 0
-				variables['x_wind'][variables['x_wind']<50] = 0
-				variables['y_wind'] = np.nan_to_num(variables['y_wind'])
-				variables['y_wind'][variables['y_wind']>50] = 0
-				variables['y_wind'][variables['y_wind']<50] = 0
-
-
-
-		# Masking NaN of the others variables, considering u and v always requested
+		# Masking NaN
 		for var in requested_variables:
-			variables[var] = np.nan_to_num(variables[var])
+			variables[var] = np.ma.masked_invalid(variables[var])
+
+			if 'x_sea_water_velocity' or 'x_wind' in variables.keys():
+				print("Retrieving velocities")
+
+
 		logger.debug('Time for ECOM reader: ' + str(datetime.now()-start_time))
 
 		return variables
