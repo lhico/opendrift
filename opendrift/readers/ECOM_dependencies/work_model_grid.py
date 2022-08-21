@@ -50,6 +50,7 @@ def load(grid, nrows, verbose=False):
 		Xgrid[J-2, I-2] = model_grid[n, 7]
 
 	fsm[np.where(depgrid <0)] = 1
+	depgrid[np.where(depgrid <0)] = np.nan
 
 	return II,JJ,H1,H2,depgrid,ANG,Xgrid,Ygrid,fsm
 
