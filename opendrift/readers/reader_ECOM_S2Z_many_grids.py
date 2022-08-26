@@ -58,7 +58,11 @@ class Reader(BaseReader,StructuredReader):
 			'cbc':'Bottom_Drag_Coefficient',
 			'lon':'lon',
 			'lat':'lat',
-			'ang': 'ang'}
+			'ang': 'ang',
+			'hs':'sea_surface_wave_significant_height',
+			't02':'sea_surface_wave_mean_period_from_variance_spectral_density_second_frequency_moment',
+			'uuss':'sea_surface_wave_stokes_drift_x_velocity',
+			'vuss':'sea_surface_wave_stokes_drift_y_velocity'}
 
 
 		filestr = str(filename)
@@ -130,16 +134,31 @@ class Reader(BaseReader,StructuredReader):
 							print("Using SBB grid")
 							self.grid.append('sbb')
 
-					#if x is the zonal coordinate (new version from ECOM) only works with SBB grid	
+					#if x is the zonal coordinate (new version from ECOM)
 					else:
-						self.x = self.Dataset_1.variables['x']
-						self.y = self.Dataset_1.variables['y']
-						print("Using SBB grid with the version whitout xpos and ypos of ECOM")
-						self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
-						self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
-						print("Using SBB grid")
+						self.x = self.Dataset_1['x']
+						if len(self.x) == 152:
+							self.Dataset = work_model_grid.fix_ds_other(self.Dataset_1.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using Cananeia grid in spite of SBB")
+							self.grid.append('cananeia')
+						elif len(self.x) > 290:
+							self.Dataset = work_model_grid.fix_ds_other_2(self.Dataset_1.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using SESSVB grid in spite of SBB or Cananeia")
+							self.grid.append('sessvb')
+
+						else:							
+							self.x = self.Dataset_1['x']
+							self.y = self.Dataset_1['y']
+
+							self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
+							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
+							print("Using SBB grid")
+							self.grid.append('sbb')
 					
 				else:
+					print("Has no Xarray")
 					self.Dataset = Dataset(filename, 'r')
 		except Exception as e:
 			raise ValueError('e')
