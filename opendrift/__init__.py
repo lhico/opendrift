@@ -1,8 +1,6 @@
 """
 Opendrift module
-
 .. currentmodule:: opendrift
-
 """
 import logging; logger = logging.getLogger(__name__)
 import unittest
@@ -38,7 +36,7 @@ def get_model(model_name):
                 return model
 
 
-def open(filename, times=None, elements=None):
+def open(filename, times=None, elements=None, load_history=True):
     '''Import netCDF output file as OpenDrift object of correct class'''
 
     import os
@@ -73,11 +71,11 @@ def open(filename, times=None, elements=None):
         from opendrift.models import oceandrift
         cls = oceandrift.OceanDrift
     o = cls()
-    o.io_import_file(filename, times=times, elements=elements)
+    o.io_import_file(filename, times=times, elements=elements, load_history=load_history)
     logger.info('Returning ' + str(type(o)) + ' object')
     return o
 
-def open_xarray(filename, analysis_file=None, chunks={'trajectory': 50000, 'time': 1000}):
+def open_xarray(filename, chunks={'trajectory': 50000, 'time': 1000}):
     '''Import netCDF output file as OpenDrift object of correct class'''
 
     import os
@@ -112,13 +110,10 @@ def open_xarray(filename, analysis_file=None, chunks={'trajectory': 50000, 'time
         from opendrift.models import oceandrift
         cls = oceandrift.OceanDrift
     o = cls()
-    o.analysis_file = analysis_file
     o.io_import_file_xarray(filename, chunks=chunks)
-
 
     logger.info('Returning ' + str(type(o)) + ' object')
     return o
-
 
 def versions():
     import multiprocessing
@@ -126,7 +121,6 @@ def versions():
     import scipy
     import matplotlib
     import netCDF4
-    import oil_library
     import xarray
     import sys
     s = '\n------------------------------------------------------\n'
@@ -146,7 +140,6 @@ def versions():
     s += '  Matplotlib version %s\n' % matplotlib.__version__
     s += '  NetCDF4 version %s\n' % netCDF4.__version__
     s += '  Xarray version %s\n' % xarray.__version__
-    s += '  OilLibrary version %s\n' % oil_library.__version__
     s += '  Python version %s\n' % sys.version.replace('\n', '')
     s += '------------------------------------------------------\n'
     return s
@@ -215,4 +208,3 @@ def import_from_ladim(ladimfile, romsfile):
     o.steps_output = num_timesteps
 
     return o
-
