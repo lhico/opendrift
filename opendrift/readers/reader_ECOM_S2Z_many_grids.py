@@ -86,12 +86,69 @@ class Reader(BaseReader,StructuredReader):
 					return ds
 
 				if has_xarray is True:
-					self.Dataset = xr.open_mfdataset(filename,
-						chunks={'time': 1}, concat_dim='time',
-						preprocess=drop_non_essential_vars_pop,
-						data_vars='minimal', coords='minimal')
-				else:
-					self.Dataset = MFDataset(filename)
+					print("Opening with MFDataset and concat dim time")
+					self.Dataset_1 = xr.open_mfdataset(filename,
+						chunks={'time': 1}, concat_dim='time')
+
+					print("dataset ==", self.Dataset_1)
+					self.grid = []
+
+					if 'xpos' in self.Dataset_1:
+						remap_names_1 = {'x': 'corn_lon', 'y': 'corn_lat'}							
+						self.Dataset_2 = self.Dataset_1.rename(remap_names_1)
+						remap_names_2 = {'xpos': 'x', 'ypos': 'y'}
+						self.Dataset_3 = self.Dataset_2.rename(remap_names_2)
+						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lon')
+						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lat')
+						self.x = self.Dataset_3.variables['x']
+
+						if len(self.x) == 152:
+							self.Dataset = work_model_grid.fix_ds_other(self.Dataset_3.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using Cananeia grid in spite of SBB")
+							self.grid.append('cananeia')
+						elif len(self.x) > 290:
+							self.Dataset = work_model_grid.fix_ds_other_2(self.Dataset_3.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using SESSVB grid in spite of SBB or Cananeia")
+							self.grid.append('sessvb')
+
+						else:
+							if 'xpos' and 'x' in self.Dataset_1:
+								self.x = self.Dataset_1.variables['xpos']
+								self.y = self.Dataset_1.variables['ypos']
+							else:
+								self.x = self.Dataset_3.variables['x']
+								self.y = self.Dataset_3.variables['y']
+
+							self.Dataset_3 = self.Dataset_1
+							self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
+							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
+							print("Using SBB grid")
+							self.grid.append('sbb')
+
+					#if x is the zonal coordinate (new version from ECOM)
+					else:
+						self.x = self.Dataset_1['x']
+						if len(self.x) == 152:
+							self.Dataset = work_model_grid.fix_ds_other(self.Dataset_1.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using Cananeia grid in spite of SBB")
+							self.grid.append('cananeia')
+						elif len(self.x) > 290:
+							self.Dataset = work_model_grid.fix_ds_other_2(self.Dataset_1.copy())
+							self.zlevels = np.array([0.0000,-5.000,-10.0000,-15.0000,-20.0000])
+							print("Using SESSVB grid in spite of SBB or Cananeia")
+							self.grid.append('sessvb')
+
+						else:							
+							self.x = self.Dataset_1['x']
+							self.y = self.Dataset_1['y']
+
+							self.Dataset = work_model_grid.fix_ds(self.Dataset_1.copy())
+							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
+							print("Using SBB grid")
+							self.grid.append('sbb')
 			else:
 				#logger.info('Opening file with Dataset')
 				if has_xarray is True:
@@ -215,13 +272,17 @@ class Reader(BaseReader,StructuredReader):
 			self.lon = self.Dataset.variables['lon']
 			print("LON==",self.lon)
 			print("Shape of lon==",self.lon.shape)
+			print("Ndim of depth:",self.depth.ndim)
+			if self.depth.ndim >=3:
+				print("Getting just one time of depth")
+				self.depth = self.depth[0,:,:]
+				print("New ndim of depth:", self.depth.ndim)
+
 			self.depth = ma.masked_where(self.depth<0, self.depth)
 			print("Depth:", self.depth)
 			print("min depth", np.nanmin(self.depth))
 			print("max depth", np.nanmax(self.depth))
-
-
-
+			
 		else:
 			if gridfile is None:
 				raise ValueError(filename + ' does not contain lon/lat '
@@ -523,8 +584,10 @@ class Reader(BaseReader,StructuredReader):
 					if len(np.atleast_1d(indz)) >= 1:
 						logger.debug('sigma to z for ' + varname[0])
 						if self.precalculate_s2z_coefficients is True: 	
-							y_depth = self.Dataset.variables['depth'].shape[0] #Positions of depth by Y
-							x_depth = self.Dataset.variables['depth'].shape[1] #Positions of depth by X
+							#y_depth = self.Dataset.variables['depth'].shape[0] #Positions of depth by Y
+							#x_depth = self.Dataset.variables['depth'].shape[1] #Positions of depth by X
+							y_depth = self.depth.shape[0] #Positions of depth by Y
+							x_depth = self.depth.shape[1] #Positions of depth by X
 							L_Y = y_depth #len(y_depth)
 							L_X = x_depth #len(x_depth) 
 							L_Z = len(self.z_rho_tot)	
