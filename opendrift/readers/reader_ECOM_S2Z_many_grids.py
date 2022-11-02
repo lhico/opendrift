@@ -121,7 +121,7 @@ class Reader(BaseReader,StructuredReader):
 								self.x = self.Dataset_3.variables['x']
 								self.y = self.Dataset_3.variables['y']
 
-							self.Dataset_3 = self.Dataset_1
+							#self.Dataset_3 = self.Dataset_1
 							self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
 							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
 							print("Using SBB grid")
@@ -165,6 +165,8 @@ class Reader(BaseReader,StructuredReader):
 						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lon')
 						self.Dataset_3 = self.Dataset_3.drop(labels='corn_lat')
 						self.x = self.Dataset_3.variables['x']
+						print("Done with the renaming of the old version")
+						print("x coordinates are:", self.x)
 
 						if len(self.x) == 152:
 							self.Dataset = work_model_grid.fix_ds_other(self.Dataset_3.copy())
@@ -181,11 +183,14 @@ class Reader(BaseReader,StructuredReader):
 							if 'xpos' and 'x' in self.Dataset_1:
 								self.x = self.Dataset_1.variables['xpos']
 								self.y = self.Dataset_1.variables['ypos']
+								print("Both xpos and x were in cdf")
+
 							else:
+								print("Aquiring x and y from renamed coordinates")
 								self.x = self.Dataset_3.variables['x']
 								self.y = self.Dataset_3.variables['y']
 
-							self.Dataset_3 = self.Dataset_1
+							#self.Dataset_3 = self.Dataset_1
 							self.Dataset = work_model_grid.fix_ds(self.Dataset_3.copy())
 							self.zlevels = np.array([0, -5, -10, -15, -25,-30, -50, -75, -100, -150, -200,-250, -300, -400, -500, -600, -700, -800, -900, -1000, -1500,-2000])
 							print("Using SBB grid")
@@ -220,7 +225,7 @@ class Reader(BaseReader,StructuredReader):
 		except Exception as e:
 			raise ValueError('e')
 
-
+		print("The grid is", self.grid)
 		if 'sigma' not in self.Dataset.variables:
 			dimensions = 2
 		else:
@@ -541,8 +546,11 @@ class Reader(BaseReader,StructuredReader):
 				if par == 'x_sea_water_velocity':
 					if not hasattr(self, 'DUM'):
 						if 'DUM' in self.Dataset.variables:
-							print("using DUM at invalid x_sea_water_velocity")
+							
 							self.mask_u =self.Dataset.variables['DUM']
+							print("using DUM at invalid x_sea_water_velocity with ndim:",self.mask_u.ndim)
+							if self.mask_u.ndim > 2:
+								self.mask_u = self.mask_u[0]
 							if self.grid[0] == 'cananeia':
 								self.mask_u[309:314,0] = 1
 						else:
@@ -551,7 +559,11 @@ class Reader(BaseReader,StructuredReader):
 				elif par == 'y_sea_water_velocity':
 					if not hasattr(self, 'DVM'):
 						if 'DVM' in self.Dataset.variables:
+							
 							self.mask_v =self.Dataset.variables['DVM']
+							print("using DVM at invalid y_sea_water_velocity with ndim:",self.mask_v.ndim)
+							if self.mask_v.ndim > 2:
+								self.mask_v = self.mask_v[0]
 							if self.grid[0] == 'cananeia':
 								self.mask_v[309:314,0] = 1
 						else:
@@ -646,19 +658,20 @@ class Reader(BaseReader,StructuredReader):
 						#variables[par]_s = R_s.reshape((kmax,) + F_sshape[1:])	
 						# Nan in input to multi_zslice gives extreme values in output
 						variables[par][variables[par]>1e+9] = np.nan
-						#print("Type var_par ==", type(variables[par]))				
+						#print("Type var_par ==", type(variables[par]))
 
-			if len(indz)<=2:
-		
+			print("Len of indz after sigma to z:", len(indz))
+			print("Var ndim ==", variables[par].ndim)
+
+
+			if len(indz)<=var.ndim:			
 				if variables[par].ndim > 1:
 					variables[par] = variables[par].diagonal()
-					print("Var ndim after diag==", variables[par].ndim)
-			
-					
+					print("Var ndim after diag==", variables[par].ndim)					
 			else:
-				variables[par] = variables[par]
+				print("Variables good to go at right dimension")
+				variables[par] = variables[par]				
 			
-
 			# Mask values outside domain			
 			variables[par] = np.ma.array(variables[par], ndmin=2, mask=False)
 
